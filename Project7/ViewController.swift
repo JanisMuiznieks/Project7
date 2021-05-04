@@ -17,10 +17,15 @@ class ViewController: UITableViewController {
         
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Credits", style: .plain, target: self, action: #selector(creditsButton))
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Filter", style: .plain, target: self, action: #selector(filterButton))
+        performSelector(inBackground: #selector(fetchJSON), with: nil)
+    }
+    
+    @objc func fetchJSON(){
+       
         
-        let urlString: String
-        
-        if navigationController?.tabBarItem.tag == 0 {
+        DispatchQueue.main.async { [self] in
+            var urlString: String
+            if navigationController?.tabBarItem.tag == 0 {
             urlString = "https://www.hackingwithswift.com/samples/petitions-1.json"
             
         } else {
@@ -33,19 +38,23 @@ class ViewController: UITableViewController {
                 return
             }
         }
-        showError()
-
+            performSelector(onMainThread: #selector(showError), with: nil, waitUntilDone: false)
+        }
     }
-    func showError(){
+    
+    @objc func showError(){
+        
         let ac = UIAlertController(title: "Loading error", message: "There was a problem loading the feed; please check your connection and try again.", preferredStyle: .alert)
         ac.addAction(UIAlertAction(title: "OK", style: .default))
-        present(ac, animated: true)
+            present(ac, animated: true)
     }
     func parse(json: Data){
         let decoder = JSONDecoder()
         if let jsonPetitions = try? decoder.decode(Petitions.self, from: json) {
             petitions = jsonPetitions.results
-            tableView.reloadData()
+            tableView.performSelector(onMainThread: #selector(UITableView.reloadData), with: nil, waitUntilDone: false)
+        } else {
+            performSelector(onMainThread: #selector(showError), with: nil, waitUntilDone: false)
         }
     }
     @objc func creditsButton() {
@@ -54,6 +63,8 @@ class ViewController: UITableViewController {
         present(ac, animated: true)
     }
     @objc func filterButton() {
+        DispatchQueue.main.async { [weak self] in
+            
         let ac = UIAlertController(title: "Filter petitions", message: nil, preferredStyle: .alert)
         ac.addTextField()
         let submitAction = UIAlertAction(title: "Filter", style: .default) { [weak self, weak ac] _ in
@@ -62,7 +73,8 @@ class ViewController: UITableViewController {
         }
         ac.addAction(submitAction)
         ac.addAction(UIAlertAction(title: "Cancel", style: .destructive))
-        present(ac, animated: true)
+            self?.present(ac, animated: true)
+        }
     }
     func submit(_ filter: String) {
             petitionsFiltered = []
@@ -74,8 +86,12 @@ class ViewController: UITableViewController {
             tableView.reloadData()
         }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        petitionsFiltered.count
-        
+        if petitionsFiltered.count > 1 {
+            return petitionsFiltered.count
+        } else {
+            return petitions.count
+            
+        }
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
@@ -87,7 +103,7 @@ class ViewController: UITableViewController {
     }
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let vc = DetailViewController()
-        vc.detailItem = petitionsFiltered[indexPath.row]
+        vc.detailItem = petitions[indexPath.row]
         navigationController?.pushViewController(vc, animated: true)
     }
 }
